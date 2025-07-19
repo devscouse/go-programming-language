@@ -1,6 +1,9 @@
 // Lissajous generates GIF animations of random Lissajous figures
 package main
 
+// When importing a package whose path has multiple components like
+// image/color, we refer to the package with a name that comes from the last
+// component.
 import (
 	"image"
 	"image/color"
@@ -11,6 +14,9 @@ import (
 	"os"
 )
 
+// This expression is a composite literal, a compact notation for instantiating
+// any of Go's composite types from a sequence of element values. This one is a
+// a slice and gif.GIF{LoopCount: nframes} is a struct.
 var palette = []color.Color{color.White, color.Black}
 
 const (
@@ -32,9 +38,13 @@ func lissajous(out io.Writer) {
 	)
 
 	freq := rand.Float64() * 3.0
+
+	// anim is a struct of type GIF. The literal creates a struct value whose
+	// LoopCount field is set to nframes; all other fields have the zero value
+	// for their type.
 	anim := gif.GIF{LoopCount: nframes}
 	phase := 0.0
-	for i := range nframes {
+	for range nframes {
 		rect := image.Rect(0, 0, 2*size+1, 2*size+1)
 		img := image.NewPaletted(rect, palette)
 		for t := 0.0; t < cycles*2*math.Pi; t += res {
