@@ -19,16 +19,15 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 )
 
 const (
 	defaultWidth  = 600
 	defaultHeight = 320
 	defaultCells  = 100
-	defaultColor  = "white"
+	defaultColor  = "gray"
 	xyrange       = 30.0
-	xyscale       = width / 2 / xyrange
-	zscale        = height * 0.4
 	angle         = math.Pi / 6
 )
 
@@ -43,34 +42,71 @@ func main() {
 }
 
 func createSVG(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf(
+	w.Header().Set("Content-Type", "image/svg+xml")
+
+	width := defaultWidth
+	height := defaultHeight
+	cells := defaultCells
+	color := defaultColor
+	for k, v := range r.URL.Query() {
+		if len(v) == 0 || len(v) > 1 {
+			log.Printf("Unexpected query param value for %s: %v", k, v)
+			continue
+		}
+
+		value := v[0]
+		var err error = nil
+		switch k {
+		case "width":
+			width, err = strconv.Atoi(value)
+		case "height":
+			height, err = strconv.Atoi(value)
+		case "cells":
+			cells, err = strconv.Atoi(value)
+		case "color":
+			color = value
+			err = nil
+		default:
+			log.Printf("Unexpected query param %s\n", k)
+			err = nil
+		}
+
+		if err != nil {
+			log.Printf("Error parsing query param %s with value %s: %g\n", k, value, err)
+			continue
+		}
+	}
+	fmt.Fprintf(w,
 		"<svg xmlns='http://www.w3.org/2000/svg' "+
-			"style='stroke: grey; fill: white; stroke-width: 0.7' "+
-			"width='%d' height='%d'>", width, height)
+			"style='stroke: %s; fill: white; stroke-width: 0.7' "+
+			"width='%d' height='%d'>", color, width, height)
 
 	for i := range cells {
 		for j := range cells {
-			ax, ay := corner(i+1, j)
-			bx, by := corner(i, j)
-			cx, cy := corner(i, j+1)
-			dx, dy := corner(i+1, j+1)
+			ax, ay := corner(i+1, j, cells, width, height)
+			bx, by := corner(i, j, cells, width, height)
+			cx, cy := corner(i, j+1, cells, width, height)
+			dx, dy := corner(i+1, j+1, cells, width, height)
 
-			fmt.Printf(
+			fmt.Fprintf(
+				w,
 				"<polygon points='%g,%g,%g,%g,%g,%g,%g,%g'/>\n",
 				ax, ay, bx, by, cx, cy, dx, dy)
 		}
 	}
-	fmt.Println("</svg>")
+	fmt.Fprintln(w, "</svg>")
 }
 
-func corner(i int, j int) (float64, float64) {
-	x := xyrange * (float64(i)/cells - 0.5)
-	y := xyrange * (float64(j)/cells - 0.5)
+func corner(i int, j int, cells int, width int, height int) (float64, float64) {
+	xyscale := float64(width) / 2 / xyrange
+	zscale := float64(height) * 0.4
+	x := xyrange * (float64(i)/float64(cells) - 0.5)
+	y := xyrange * (float64(j)/float64(cells) - 0.5)
 	z := f(x, y)
 
 	// Project (x, y, z) isometrically onto 2D SVC Canvas (sx, sy)
-	sx := width/2 + (x-y)*cos30*xyscale
-	sy := height/2 + (x+y)*sin30*xyscale - z*zscale
+	sx := float64(width)/2 + (x-y)*cos30*xyscale
+	sy := float64(height)/2 + (x+y)*sin30*xyscale - z*zscale
 	return sx, sy
 }
 
